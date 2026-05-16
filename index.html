@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainFit PRO - Smart Learning Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;700&display=swap');
+        
+        :root {
+            --bg-main: #f8fafc;
+            --card-bg: rgba(255, 255, 255, 0.85);
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+        }
+
+        .dark {
+            --bg-main: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.85);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body { 
+            font-family: 'Pretendard', sans-serif; 
+            background-color: var(--bg-main); 
+            color: var(--text-main);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .glass-card { 
+            background: var(--card-bg); 
+            backdrop-filter: blur(10px); 
+            border: 1px solid var(--border-color); 
+        }
+
+        .tab-active { color: #6366f1; border-bottom: 2px solid #6366f1; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .curve-container { position: relative; height: 300px; width: 100%; }
+        
+        @keyframes pulse-red {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        .urgent-flash { animation: pulse-red 1.5s infinite; color: #ef4444; }
+    </style>
+</head>
+<body class="text-slate-900 transition-colors duration-300">
+
+    <!-- Top Navigation -->
+    <nav class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+        <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+            <h1 class="text-2xl font-bold text-indigo-600 flex items-center gap-2">
+                <span>🧠</span> BrainFit <span class="text-xs bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full ml-1 uppercase tracking-widest">Pro</span>
+            </h1>
+            
+            <div class="flex items-center gap-4">
+                <!-- Dark Mode Toggle -->
+                <button onclick="toggleDarkMode()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:ring-2 ring-indigo-400 transition-all">
+                    <span id="dark-icon">🌙</span>
+                </button>
+
+                <div class="hidden sm:flex flex-col items-end">
+                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Neural Level</span>
+                    <div class="flex items-center gap-2">
+                        <span id="user-level" class="text-sm font-bold text-indigo-500">1</span>
+                        <div class="w-16 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div id="level-bar" class="h-full bg-indigo-500 transition-all duration-700" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-[10px] font-bold text-orange-400 uppercase tracking-tighter">Streak</span>
+                    <span class="text-sm font-bold text-orange-600">🔥 <span id="streak-count">0</span></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tab Bar -->
+        <div class="max-w-5xl mx-auto px-4 flex gap-6 h-12 border-t border-slate-50 dark:border-slate-800 overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('todo')" id="btn-todo" class="whitespace-nowrap text-sm font-bold transition-all px-1 tab-active">복습 목록</button>
+            <button onclick="switchTab('report')" id="btn-report" class="whitespace-nowrap text-sm font-bold transition-all px-1 text-slate-400">망각 분석</button>
+            <button onclick="switchTab('stats')" id="btn-stats" class="whitespace-nowrap text-sm font-bold transition-all px-1 text-slate-400">성장 통계</button>
+            <button onclick="switchTab('planner')" id="btn-planner" class="whitespace-nowrap text-sm font-bold transition-all px-1 text-slate-400">플래너</button>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-4 py-8">
+        
+        <!-- Tab: Todo -->
+        <section id="tab-todo">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <!-- Registration Side -->
+                <div class="lg:col-span-4">
+                    <div class="glass-card p-6 rounded-3xl shadow-sm sticky top-32">
+                        <h3 class="text-lg font-bold mb-6 flex items-center gap-2 dark:text-white">
+                            <span class="text-indigo-600">📝</span> 지식 등록
+                        </h3>
+                        <div class="space-y-4">
+                            <input id="subject" type="text" placeholder="과목명 (예: 과학)" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white border-none focus:ring-2 focus:ring-indigo-400 outline-none text-sm transition-all">
+                            <input id="topic" type="text" placeholder="주제 (예: 광합성)" class="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 dark:text-white border-none focus:ring-2 focus:ring-indigo-400 outline-none text-sm transition-all">
+                            <div>
+                                <label class="text-[11px] font-bold text-slate-400 mb-2 block uppercase tracking-wider">학습 난이도</label>
+                                <input id="difficulty" type="range" min="1" max="10" value="5" class="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-600">
+                                <div class="flex justify-between text-[10px] text-slate-400 mt-2 font-medium">
+                                    <span>쉬움</span>
+                                    <span>매우 어려움</span>
+                                </div>
+                            </div>
+                            <button onclick="addSubject()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 dark:shadow-none transition-all active:scale-95">
+                                분석 모델 생성
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- List Side -->
+                <div class="lg:col-span-8">
+                    <header class="mb-6 flex justify-between items-end">
+                        <div>
+                            <h2 class="text-2xl font-bold dark:text-white">오늘의 인출 미션</h2>
+                            <p class="text-slate-500 dark:text-slate-400 text-sm mt-1">망각이 빨라진 지식부터 먼저 복구하세요.</p>
+                        </div>
+                        <div class="text-[10px] font-bold text-slate-400 uppercase px-3 py-1 border border-slate-200 dark:border-slate-700 rounded-full">
+                            Today: <span id="today-date"></span>
+                        </div>
+                    </header>
+                    <div id="todo-list" class="space-y-4">
+                        <!-- Items -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Forgetting Analysis -->
+        <section id="tab-report" class="hidden">
+            <header class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold dark:text-white">망각 곡선 시뮬레이션</h2>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">에빙하우스 모델 기반 기억 소멸 예측</p>
+                </div>
+                <select id="curve-selector" onchange="renderCurve()" class="bg-white dark:bg-slate-800 dark:text-white border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-xl text-sm font-bold outline-none shadow-sm cursor-pointer transition-all">
+                    <option value="all">종합 데이터</option>
+                </select>
+            </header>
+
+            <div class="grid grid-cols-1 gap-6">
+                <div class="glass-card p-8 rounded-[2.5rem] shadow-sm overflow-hidden">
+                    <div class="curve-container">
+                        <canvas id="forgettingChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2 bg-indigo-600 p-8 rounded-[2rem] text-white relative overflow-hidden shadow-xl">
+                        <div class="relative z-10">
+                            <h4 class="text-xs font-bold text-indigo-200 mb-2 uppercase tracking-widest">AI Coach Analysis</h4>
+                            <p id="coach-insight" class="text-lg font-medium leading-relaxed italic">데이터를 등록하여 분석을 시작하세요.</p>
+                        </div>
+                    </div>
+                    <div class="glass-card p-8 rounded-[2rem] flex flex-col items-center justify-center text-center">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">평균 기억 유지율</p>
+                        <h5 id="avg-retention" class="text-5xl font-black text-indigo-600">0%</h5>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Stats (NEW) -->
+        <section id="tab-stats" class="hidden">
+            <h2 class="text-2xl font-bold mb-8 dark:text-white">나의 성장 리포트</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                <div class="glass-card p-6 rounded-3xl text-center">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">총 인출 횟수</p>
+                    <p id="stat-total-reviews" class="text-3xl font-black text-indigo-600">0</p>
+                </div>
+                <div class="glass-card p-6 rounded-3xl text-center">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">구출한 지식</p>
+                    <p id="stat-total-subjects" class="text-3xl font-black text-emerald-500">0</p>
+                </div>
+                <div class="glass-card p-6 rounded-3xl text-center">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">최대 스트릭</p>
+                    <p id="stat-max-streak" class="text-3xl font-black text-orange-500">0</p>
+                </div>
+                <div class="glass-card p-6 rounded-3xl text-center">
+                    <p class="text-[10px] font-bold text-slate-400 uppercase mb-1">완성도 점수</p>
+                    <p id="stat-mastery" class="text-3xl font-black text-violet-500">0</p>
+                </div>
+            </div>
+            <div class="glass-card p-8 rounded-[2rem]">
+                <h3 class="font-bold mb-4 dark:text-white">과목별 마스터리 현황</h3>
+                <div id="subject-stats-list" class="space-y-4">
+                    <!-- Progress bars for each subject -->
+                </div>
+            </div>
+        </section>
+
+        <!-- Tab: Planner -->
+        <section id="tab-planner" class="hidden">
+            <h2 class="text-2xl font-bold mb-8 dark:text-white">기억 복구 스케줄</h2>
+            <div id="planner-view" class="max-w-2xl mx-auto space-y-4"></div>
+        </section>
+
+    </main>
+
+    <!-- Recall Modal -->
+    <div id="quizModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-[100] px-4">
+        <div class="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] max-w-md w-full shadow-2xl transition-all scale-95 opacity-0" id="modalContent">
+            <div class="text-center mb-6">
+                <span class="text-4xl mb-4 inline-block">🎯</span>
+                <h4 class="text-2xl font-bold dark:text-white">기억 인출하기</h4>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">이 주제에 대해 아는 대로 설명해 보세요.</p>
+            </div>
+            <div class="bg-indigo-50 dark:bg-indigo-900/30 p-6 rounded-2xl mb-6 text-center">
+                <p id="quiz-topic-display" class="font-bold text-xl text-indigo-900 dark:text-indigo-300"></p>
+            </div>
+            <div class="mb-8">
+                <input id="quiz-answer" type="text" placeholder="키워드를 적어보세요..." class="w-full px-5 py-4 rounded-2xl bg-slate-50 dark:bg-slate-900 dark:text-white border-2 border-transparent focus:border-indigo-400 outline-none transition-all font-medium">
+            </div>
+            <button onclick="showFeedback()" class="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition-all">
+                완료 및 난이도 평가
+            </button>
+        </div>
+    </div>
+
+    <!-- Feedback Modal -->
+    <div id="feedbackModal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md hidden flex items-center justify-center z-[110] px-4">
+        <div class="bg-white dark:bg-slate-800 p-10 rounded-[3rem] max-w-sm w-full text-center">
+            <h4 class="text-xl font-bold mb-8 dark:text-white">방금 인출 과정이<br>어떠셨나요?</h4>
+            <div class="flex flex-col gap-3">
+                <button onclick="processFeedback('hard')" class="p-5 rounded-2xl border border-rose-100 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 font-bold hover:bg-rose-100 transition-all">😣 어려웠음 (주기 단축)</button>
+                <button onclick="processFeedback('normal')" class="p-5 rounded-2xl border border-slate-100 bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-100 transition-all">😐 적당했음 (주기 유지)</button>
+                <button onclick="processFeedback('easy')" class="p-5 rounded-2xl border border-emerald-100 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-bold hover:bg-emerald-100 transition-all">😊 매우 쉬웠음 (주기 연장)</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State ---
+        let state = JSON.parse(localStorage.getItem('brainfit_pro_v1')) || {
+            subjects: [],
+            exp: 0,
+            level: 1,
+            streak: 0,
+            maxStreak: 0,
+            lastDate: null,
+            totalReviews: 0,
+            isDarkMode: false
+        };
+
+        let currentId = null;
+        let activeChart = null;
+
+        function save() { 
+            localStorage.setItem('brainfit_pro_v1', JSON.stringify(state)); 
+        }
+
+        // --- Core UI ---
+        function toggleDarkMode() {
+            state.isDarkMode = !state.isDarkMode;
+            document.documentElement.classList.toggle('dark', state.isDarkMode);
+            document.getElementById('dark-icon').innerText = state.isDarkMode ? '☀️' : '🌙';
+            save();
+            if(activeChart) renderCurve(); // Re-render chart for color sync
+        }
+
+        function switchTab(tab) {
+            ['todo', 'report', 'stats', 'planner'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById(`btn-${t}`);
+                btn.classList.toggle('tab-active', t === tab);
+                btn.classList.toggle('text-slate-400', t !== tab);
+            });
+            if(tab === 'report') renderCurve();
+            if(tab === 'stats') renderStats();
+            if(tab === 'planner') renderPlanner();
+        }
+
+        function showToast(msg) {
+            const t = document.createElement('div');
+            t.className = "fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-8 py-3.5 rounded-full text-sm font-bold z-[200] shadow-2xl transition-all duration-500 opacity-0 translate-y-4";
+            t.innerText = msg;
+            document.body.appendChild(t);
+            setTimeout(() => { t.classList.remove('opacity-0', 'translate-y-4'); }, 10);
+            setTimeout(() => { t.classList.add('opacity-0', 'translate-y-4'); setTimeout(() => t.remove(), 500); }, 3000);
+        }
+
+        // --- Learning ---
+        function addSubject() {
+            const sub = document.getElementById('subject').value;
+            const topic = document.getElementById('topic').value;
+            const diff = parseInt(document.getElementById('difficulty').value);
+
+            if(!sub || !topic) { showToast("정보를 모두 입력해 주세요!"); return; }
+
+            const newItem = {
+                id: Date.now(),
+                name: sub,
+                topic: topic,
+                diff,
+                reviews: 0,
+                interval: 1,
+                nextReview: new Date().toLocaleDateString(), // 즉시 복습 목록에 노출
+                mastery: 10 // 초기 마스터리
+            };
+
+            state.subjects.push(newItem);
+            save();
+            renderTodoList();
+            showToast("새로운 기억 감시를 시작합니다.");
+            document.getElementById('subject').value = '';
+            document.getElementById('topic').value = '';
+        }
+
+        function renderTodoList() {
+            const list = document.getElementById('todo-list');
+            const today = new Date();
+            // Sort by diff (high diff first) and review date
+            const sortedTasks = state.subjects
+                .filter(s => new Date(s.nextReview) <= today)
+                .sort((a,b) => b.diff - a.diff);
+            
+            if(sortedTasks.length === 0) {
+                list.innerHTML = `<div class="text-center py-20 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 text-slate-400">모든 기억이 안전합니다! 🛡️</div>`;
+                return;
+            }
+
+            list.innerHTML = sortedTasks.map(t => {
+                // Urgent indicator if diff is high
+                const isUrgent = t.diff >= 8;
+                return `
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-3xl border border-slate-200 dark:border-slate-700 flex items-center justify-between group hover:shadow-lg transition-all">
+                        <div class="flex items-center gap-4">
+                            <div class="flex flex-col items-center justify-center w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                                ${isUrgent ? '<span class="urgent-flash text-xl">🔥</span>' : '<span class="text-xl">📚</span>'}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[9px] font-black rounded uppercase">${t.name}</span>
+                                    ${isUrgent ? '<span class="text-[9px] font-bold text-rose-500 uppercase">High Priority</span>' : ''}
+                                </div>
+                                <h4 class="text-xl font-bold dark:text-white">${t.topic}</h4>
+                            </div>
+                        </div>
+                        <button onclick="openQuiz(${t.id})" class="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-700 active:scale-95 transition-all">인출</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openQuiz(id) {
+            currentId = id;
+            const task = state.subjects.find(s => s.id === id);
+            document.getElementById('quiz-topic-display').innerText = task.topic;
+            document.getElementById('quiz-answer').value = '';
+            document.getElementById('quizModal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('modalContent').classList.remove('scale-95', 'opacity-0'), 10);
+        }
+
+        function showFeedback() {
+            document.getElementById('quizModal').classList.add('hidden');
+            document.getElementById('feedbackModal').classList.remove('hidden');
+        }
+
+        function processFeedback(status) {
+            const task = state.subjects.find(s => s.id === currentId);
+            
+            // Stats
+            state.totalReviews++;
+            const dStr = new Date().toLocaleDateString();
+            if(state.lastDate !== dStr) {
+                state.streak++;
+                state.lastDate = dStr;
+                state.maxStreak = Math.max(state.streak, state.maxStreak);
+            }
+
+            // SRS Logic
+            let m = 1.8;
+            let masteryGain = 15;
+            if(status === 'easy') { m = 3.2; masteryGain = 25; }
+            if(status === 'hard') { m = 0.6; masteryGain = 5; }
+
+            task.interval = Math.max(1, Math.ceil(task.interval * m));
+            task.reviews++;
+            task.mastery = Math.min(100, task.mastery + masteryGain);
+            task.nextReview = new Date(Date.now() + task.interval * 86400000).toLocaleDateString();
+            
+            // Celebration
+            confetti({
+                particleCount: 150,
+                spread: 70,
+                origin: { y: 0.6 },
+                colors: ['#6366f1', '#10b981', '#f59e0b']
+            });
+
+            addExp(100);
+            document.getElementById('feedbackModal').classList.add('hidden');
+            renderTodoList();
+            save();
+            showToast(`복습 성공! +100 EXP`);
+        }
+
+        // --- Analytics ---
+        function renderCurve() {
+            const ctx = document.getElementById('forgettingChart').getContext('2d');
+            const selector = document.getElementById('curve-selector');
+            const targetId = selector.value;
+            const isDark = state.isDarkMode;
+
+            selector.innerHTML = '<option value="all">종합 데이터</option>' + 
+                state.subjects.map(s => `<option value="${s.id}" ${s.id == targetId ? 'selected' : ''}>${s.topic}</option>`).join('');
+
+            if(activeChart) activeChart.destroy();
+
+            const labels = ['직후', '20분', '1시간', '9시간', '1일', '2일', '6일', '31일'];
+            let myData = [];
+            let stdData = [100, 58, 44, 36, 33, 28, 25, 21];
+
+            if(targetId === 'all') {
+                myData = [100, 95, 90, 85, 80, 78, 75, 70];
+                document.getElementById('coach-insight').innerText = "전반적으로 기억이 견고하게 유지되고 있습니다. 꾸준한 스트릭 유지가 비결입니다!";
+            } else {
+                const s = state.subjects.find(x => x.id == targetId);
+                const decay = (s.diff / 8);
+                const bonus = s.reviews * 0.25;
+                myData = labels.map((_, i) => Math.max(15, Math.round(100 / (1 + (decay - bonus) * Math.log1p(i)))));
+                document.getElementById('coach-insight').innerText = `'${s.topic}'은 현재 ${s.reviews}회 복습되었습니다. ${s.interval}일 후에 다음 인출이 권장됩니다.`;
+            }
+
+            document.getElementById('avg-retention').innerText = `${Math.round(myData.reduce((a,b)=>a+b,0)/myData.length)}%`;
+
+            activeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: '나의 기억', data: myData, borderColor: '#6366f1', backgroundColor: 'rgba(99, 102, 241, 0.1)', fill: true, tension: 0.4, borderWidth: 4 },
+                        { label: '표준 망각', data: stdData, borderColor: isDark ? '#475569' : '#cbd5e1', borderDash: [5,5], tension: 0.4, pointRadius: 0 }
+                    ]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { 
+                        y: { min: 0, max: 100, grid: { color: isDark ? '#1e293b' : '#f1f5f9' }, ticks: { color: '#94a3b8' } },
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
+
+        function renderStats() {
+            document.getElementById('stat-total-reviews').innerText = state.totalReviews;
+            document.getElementById('stat-total-subjects').innerText = state.subjects.length;
+            document.getElementById('stat-max-streak').innerText = state.maxStreak;
+            
+            const totalMastery = state.subjects.length > 0 
+                ? Math.round(state.subjects.reduce((a,b)=>a+b.mastery, 0) / state.subjects.length) 
+                : 0;
+            document.getElementById('stat-mastery').innerText = totalMastery;
+
+            const list = document.getElementById('subject-stats-list');
+            list.innerHTML = state.subjects.map(s => `
+                <div>
+                    <div class="flex justify-between text-xs mb-1 font-bold">
+                        <span class="dark:text-slate-300">${s.topic}</span>
+                        <span class="text-indigo-500">${s.mastery}%</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-indigo-500" style="width: ${s.mastery}%"></div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderPlanner() {
+            const view = document.getElementById('planner-view');
+            const sorted = [...state.subjects].sort((a,b) => new Date(a.nextReview) - new Date(b.nextReview));
+            view.innerHTML = sorted.map(t => {
+                const diff = Math.ceil((new Date(t.nextReview) - new Date()) / 86400000);
+                return `
+                    <div class="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center gap-4">
+                        <div class="text-xs font-black text-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">D-${diff <= 0 ? 'DAY' : diff}</div>
+                        <p class="font-bold dark:text-white">${t.topic} <span class="text-xs text-slate-400 font-normal ml-2">${t.nextReview}</span></p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addExp(amt) {
+            state.exp += amt;
+            const limit = state.level * 200;
+            if(state.exp >= limit) {
+                state.level++;
+                state.exp -= limit;
+                showToast(`🚀 LEVEL UP! Lv.${state.level}`);
+            }
+            updateGrowth();
+            save();
+        }
+
+        function updateGrowth() {
+            document.getElementById('user-level').innerText = state.level;
+            document.getElementById('streak-count').innerText = state.streak;
+            const pct = (state.exp / (state.level * 200)) * 100;
+            document.getElementById('level-bar').style.width = `${pct}%`;
+        }
+
+        // Initialize
+        window.onload = () => {
+            if(state.isDarkMode) document.documentElement.classList.add('dark');
+            document.getElementById('dark-icon').innerText = state.isDarkMode ? '☀️' : '🌙';
+            document.getElementById('today-date').innerText = new Date().toLocaleDateString();
+            updateGrowth();
+            renderTodoList();
+        };
+    </script>
+</body>
+</html>
